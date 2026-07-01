@@ -3,7 +3,7 @@
 import React, { useMemo } from 'react';
 import Link from 'next/link';
 import { useQuotation } from '@/context/providers';
-import { TrendingUp, FileText, DollarSign, Calendar, ArrowRight } from 'lucide-react';
+import { TrendingUp, FileText, IndianRupee, Calendar, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { formatCurrency } from '@/lib/quotation-utils';
 
@@ -84,7 +84,7 @@ export default function DashboardPage() {
               </p>
             </div>
             <div className="p-3 bg-accent/10 rounded-lg">
-              <DollarSign className="w-6 h-6 text-accent" />
+              <IndianRupee className="w-6 h-6 text-accent" />
             </div>
           </div>
         </motion.div>

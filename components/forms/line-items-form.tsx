@@ -16,8 +16,32 @@ export function LineItemsForm({ items, modules, onItemsChange }: LineItemsFormPr
   const [selectedModule, setSelectedModule] = useState<string>('');
   const [quantity, setQuantity] = useState<number>(1);
   const [customPrice, setCustomPrice] = useState<number | string>('');
+  const [isCustom, setIsCustom] = useState<boolean>(false);
+  const [customName, setCustomName] = useState<string>('');
+  const [customBasePrice, setCustomBasePrice] = useState<number | string>('');
 
   const handleAddItem = () => {
+    if (isCustom) {
+      if (!customName) return;
+
+      const newItem: LineItem = {
+        id: generateId(),
+        moduleId: `custom-${generateId()}`,
+        moduleName: customName,
+        quantity: quantity,
+        unitPrice: customBasePrice ? Number(customBasePrice) : 0,
+        notes: '',
+      };
+
+      onItemsChange([...items, newItem]);
+      setIsCustom(false);
+      setCustomName('');
+      setCustomBasePrice('');
+      setQuantity(1);
+      setCustomPrice('');
+      return;
+    }
+
     if (!selectedModule) return;
 
     const module = modules.find((m) => m.id === selectedModule);
@@ -86,22 +110,53 @@ export function LineItemsForm({ items, modules, onItemsChange }: LineItemsFormPr
                 <Package className="w-4 h-4 inline mr-2" />
                 Select Module
               </label>
-              <select
-                value={selectedModule}
-                onChange={(e) => setSelectedModule(e.target.value)}
-                className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="">Choose a module...</option>
-                {Object.entries(groupedModules).map(([category, categoryModules]) => (
-                  <optgroup key={category} label={categoryLabels[category]}>
-                    {categoryModules.map((module) => (
-                      <option key={module.id} value={module.id}>
-                        {module.name} - {formatCurrency(module.basePrice)}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
+              <div className="flex items-center gap-3 mb-2">
+                <label className="inline-flex items-center text-sm text-foreground">
+                  <input
+                    type="checkbox"
+                    checked={isCustom}
+                    onChange={(e) => setIsCustom(e.target.checked)}
+                    className="mr-2"
+                  />
+                  Custom service
+                </label>
+              </div>
+
+              {!isCustom ? (
+                <select
+                  value={selectedModule}
+                  onChange={(e) => setSelectedModule(e.target.value)}
+                  className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="">Choose a module...</option>
+                  {Object.entries(groupedModules).map(([category, categoryModules]) => (
+                    <optgroup key={category} label={categoryLabels[category]}>
+                      {categoryModules.map((module) => (
+                        <option key={module.id} value={module.id}>
+                          {module.name} - {formatCurrency(module.basePrice)}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              ) : (
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={customName}
+                    onChange={(e) => setCustomName(e.target.value)}
+                    placeholder="Custom service name"
+                    className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground"
+                  />
+                  <input
+                    type="number"
+                    value={customBasePrice}
+                    onChange={(e) => setCustomBasePrice(e.target.value ? Number(e.target.value) : '')}
+                    placeholder="Base price"
+                    className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground"
+                  />
+                </div>
+              )}
             </div>
 
             <div>
@@ -131,7 +186,7 @@ export function LineItemsForm({ items, modules, onItemsChange }: LineItemsFormPr
 
           <button
             onClick={handleAddItem}
-            disabled={!selectedModule}
+            disabled={isCustom ? !customName : !selectedModule}
             className="mt-4 w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center gap-2"
           >
             <Plus className="w-4 h-4" />

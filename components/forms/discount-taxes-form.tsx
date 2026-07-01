@@ -3,7 +3,7 @@
 import React from 'react';
 import { TaxItem } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trash2, Plus, Percent, DollarSign } from 'lucide-react';
+import { Trash2, Plus, Percent, IndianRupee } from 'lucide-react';
 import { generateId, formatCurrency } from '@/lib/quotation-utils';
 
 interface DiscountTaxesFormProps {
@@ -75,7 +75,7 @@ export function DiscountTaxesForm({
       {/* Discount Section */}
       <div>
         <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-          <DollarSign className="w-5 h-5" />
+          <IndianRupee className="w-5 h-5" />
           Discount
         </h3>
 

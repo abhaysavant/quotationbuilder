@@ -166,4 +166,19 @@
   html {
     @apply font-sans;
   }
+
+  /* Ensure native select dropdowns use the app color tokens (helps in dark mode)
+     Some browsers use native dropdown UI which can ignore component classes —
+     force option/optgroup colors to match the theme so items remain readable. */
+  select,
+  select option,
+  select optgroup {
+    color: var(--popover-foreground) !important;
+    background-color: var(--popover) !important;
+  }
+
+  /* Improve arrow visibility in some Windows browsers */
+  select::-ms-expand {
+    filter: invert(1);
+  }
 }
