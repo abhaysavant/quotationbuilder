@@ -1,7 +1,18 @@
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Quotation } from '@/types';
-import { formatCurrency, formatDate } from './quotation-utils';
+import { formatDate } from './quotation-utils';
+
+const pdfFriendlyNumber = (amount: number) =>
+  new Intl.NumberFormat('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+
+const formatCurrencyForPDF = (amount: number) => `Rs ${pdfFriendlyNumber(amount)}`;
+
+const formatCurrencyForPDFWithSign = (amount: number) =>
+  amount < 0 ? `-Rs ${pdfFriendlyNumber(Math.abs(amount))}` : `Rs ${pdfFriendlyNumber(amount)}`;
 
 export async function exportQuotationToPDF(
   quotation: Quotation,
@@ -9,46 +20,8 @@ export async function exportQuotationToPDF(
   elementId?: string
 ) {
   try {
-    const element = elementId ? document.getElementById(elementId) : null;
-
-    if (element) {
-      try {
-        // Use html2canvas if element is provided
-        const canvas = await html2canvas(element, {
-          scale: 2,
-          useCORS: true,
-          logging: false,
-        });
-
-        const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        const pageWidth = pdf.internal.pageSize.getWidth();
-        const pageHeight = pdf.internal.pageSize.getHeight();
-        const imgWidth = pageWidth - 20;
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-        let heightLeft = imgHeight;
-        let position = 10;
-
-        pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight - 20;
-
-        while (heightLeft >= 0) {
-          position = heightLeft - imgHeight;
-          pdf.addPage();
-          pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
-          heightLeft -= pageHeight;
-        }
-
-        pdf.save(`${quotation.referenceNumber}.pdf`);
-      } catch (canvasError) {
-        console.warn('html2canvas export failed, falling back to data-driven PDF:', canvasError);
-        generatePDFFromData(quotation, companyInfo);
-      }
-    } else {
-      // Generate from data
-      generatePDFFromData(quotation, companyInfo);
-    }
+    // Use data-driven PDF export by default to avoid glyph rendering issues
+    generatePDFFromData(quotation, companyInfo);
   } catch (error) {
     console.error('Error exporting to PDF:', error);
     throw error;
@@ -143,7 +116,7 @@ function generatePDFFromData(quotation: Quotation, companyInfo: any) {
   pdf.rect(margin, tableY, contentWidth, 7, 'F');
   pdf.setFontSize(9);
   pdf.setTextColor(0, 0, 0);
-  pdf.setFont(undefined, 'bold');
+  pdf.setFont('helvetica', 'bold');
 
   let xPos = margin;
   pdf.text('Description', xPos + 2, tableY + 5);
@@ -156,7 +129,7 @@ function generatePDFFromData(quotation: Quotation, companyInfo: any) {
 
   // Table rows
   yPosition = tableY + 10;
-  pdf.setFont(undefined, 'normal');
+  pdf.setFont('helvetica', 'normal');
   pdf.setTextColor(0, 0, 0);
 
   quotation.lineItems.forEach((item) => {
@@ -178,10 +151,10 @@ function generatePDFFromData(quotation: Quotation, companyInfo: any) {
     pdf.text(item.quantity.toString(), xPos + 2, yPosition);
     xPos += columnWidths[1];
 
-    pdf.text(formatCurrency(item.unitPrice), xPos + 2, yPosition, { align: 'right' });
+    pdf.text(formatCurrencyForPDF(item.unitPrice), xPos + 2, yPosition, { align: 'right' });
     xPos += columnWidths[2];
 
-    pdf.text(formatCurrency(amount), xPos + 2, yPosition, { align: 'right' });
+    pdf.text(formatCurrencyForPDF(amount), xPos + 2, yPosition, { align: 'right' });
 
     yPosition += lineHeight + 5;
   });
@@ -190,17 +163,17 @@ function generatePDFFromData(quotation: Quotation, companyInfo: any) {
   yPosition += 5;
   const totalsX = margin + contentWidth - 80;
 
-  pdf.setFont(undefined, 'normal');
+  pdf.setFont('helvetica', 'normal');
   pdf.setTextColor(100, 100, 100);
   pdf.text('Subtotal:', totalsX, yPosition, { align: 'right' });
   pdf.setTextColor(0, 0, 0);
-  pdf.text(formatCurrency(quotation.subtotal), totalsX + 50, yPosition, { align: 'right' });
+  pdf.text(formatCurrencyForPDF(quotation.subtotal), totalsX + 50, yPosition, { align: 'right' });
 
   yPosition += 7;
   if (quotation.discountAmount > 0) {
     pdf.setTextColor(200, 0, 0);
     pdf.text('Discount:', totalsX, yPosition, { align: 'right' });
-    pdf.text(`-${formatCurrency(quotation.discountAmount)}`, totalsX + 50, yPosition, {
+    pdf.text(formatCurrencyForPDFWithSign(-quotation.discountAmount), totalsX + 50, yPosition, {
       align: 'right',
     });
     yPosition += 7;
@@ -210,7 +183,7 @@ function generatePDFFromData(quotation: Quotation, companyInfo: any) {
     pdf.setTextColor(100, 100, 100);
     pdf.text(`${tax.name}:`, totalsX, yPosition, { align: 'right' });
     pdf.setTextColor(0, 0, 0);
-    pdf.text(formatCurrency(tax.amount || 0), totalsX + 50, yPosition, { align: 'right' });
+    pdf.text(formatCurrencyForPDF(tax.amount || 0), totalsX + 50, yPosition, { align: 'right' });
     yPosition += 7;
   });
 
@@ -221,22 +194,22 @@ function generatePDFFromData(quotation: Quotation, companyInfo: any) {
   yPosition += 5;
   pdf.setFontSize(11);
   pdf.setTextColor(37, 99, 235);
-  pdf.setFont(undefined, 'bold');
+  pdf.setFont('helvetica', 'bold');
   pdf.text('TOTAL:', totalsX, yPosition, { align: 'right' });
-  pdf.text(formatCurrency(quotation.grandTotal), totalsX + 50, yPosition, { align: 'right' });
+  pdf.text(formatCurrencyForPDF(quotation.grandTotal), totalsX + 50, yPosition, { align: 'right' });
 
   // Terms and Notes
   if (quotation.terms || quotation.notes) {
     yPosition = pageHeight - 40;
 
     pdf.setFontSize(9);
-    pdf.setFont(undefined, 'bold');
+    pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(0, 0, 0);
 
     if (quotation.terms) {
       pdf.text('TERMS:', margin, yPosition);
       yPosition += 5;
-      pdf.setFont(undefined, 'normal');
+      pdf.setFont('helvetica', 'normal');
       pdf.setFontSize(8);
       const termsLines = pdf.splitTextToSize(quotation.terms, contentWidth);
       pdf.text(termsLines, margin, yPosition);
@@ -244,11 +217,11 @@ function generatePDFFromData(quotation: Quotation, companyInfo: any) {
     }
 
     if (quotation.notes) {
-      pdf.setFont(undefined, 'bold');
+      pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(9);
       pdf.text('NOTES:', margin, yPosition);
       yPosition += 5;
-      pdf.setFont(undefined, 'normal');
+      pdf.setFont('helvetica', 'normal');
       pdf.setFontSize(8);
       const notesLines = pdf.splitTextToSize(quotation.notes, contentWidth);
       pdf.text(notesLines, margin, yPosition);
