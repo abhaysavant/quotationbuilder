@@ -21,6 +21,10 @@ export async function POST(request: NextRequest) {
     await dbConnect();
     const data = await request.json();
 
+    if (data.id) {
+      data._id = data.id;
+    }
+
     const quotation = new Quotation(data);
     await quotation.save();
 

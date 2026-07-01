@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Quotation, QuotationTemplate, Client, CompanyInfo, Module } from '@/types';
+import { quotationAPI, clientAPI } from '@/lib/api';
 
 interface QuotationContextType {
   currentQuotation: Quotation | null;
@@ -53,11 +54,8 @@ const DEFAULT_MODULES: Module[] = [
 ];
 
 const STORAGE_KEYS = {
-  quotations: 'quotations',
   templates: 'templates',
   company: 'companyInfo',
-  clients: 'savedClients',
-  current: 'currentQuotation',
 };
 
 export function QuotationProvider({ children }: { children: React.ReactNode }) {
@@ -68,34 +66,42 @@ export function QuotationProvider({ children }: { children: React.ReactNode }) {
   const [savedClients, setSavedClients] = useState<Client[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Load from localStorage on mount
+  // Load initial data
   useEffect(() => {
     if (typeof window === 'undefined') return;
     
+    // Load local storage items (templates and company info)
     try {
-      const quotations = localStorage.getItem(STORAGE_KEYS.quotations);
       const templatesData = localStorage.getItem(STORAGE_KEYS.templates);
       const company = localStorage.getItem(STORAGE_KEYS.company);
-      const clients = localStorage.getItem(STORAGE_KEYS.clients);
       
-      if (quotations) setSavedQuotations(JSON.parse(quotations));
       if (templatesData) setTemplates(JSON.parse(templatesData));
       if (company) setCompanyInfoState(JSON.parse(company));
-      if (clients) setSavedClients(JSON.parse(clients));
-      
-      setIsLoaded(true);
     } catch (error) {
       console.error('Failed to load from localStorage:', error);
-      setIsLoaded(true);
     }
+
+    // Load items from DB (quotations and clients)
+    const loadFromDB = async () => {
+      try {
+        const [dbQuotations, dbClients] = await Promise.all([
+          quotationAPI.getAll().catch(() => []),
+          clientAPI.getAll().catch(() => [])
+        ]);
+        
+        if (Array.isArray(dbQuotations)) setSavedQuotations(dbQuotations);
+        if (Array.isArray(dbClients)) setSavedClients(dbClients);
+      } catch (error) {
+        console.error('Failed to load from DB:', error);
+      } finally {
+        setIsLoaded(true);
+      }
+    };
+
+    loadFromDB();
   }, []);
 
-  // Save quotations to localStorage
-  useEffect(() => {
-    if (!isLoaded) return;
-    localStorage.setItem(STORAGE_KEYS.quotations, JSON.stringify(savedQuotations));
-  }, [savedQuotations, isLoaded]);
-
+  // Save templates and company info to localStorage
   useEffect(() => {
     if (!isLoaded) return;
     localStorage.setItem(STORAGE_KEYS.templates, JSON.stringify(templates));
@@ -108,21 +114,30 @@ export function QuotationProvider({ children }: { children: React.ReactNode }) {
     }
   }, [companyInfo, isLoaded]);
 
-  useEffect(() => {
-    if (!isLoaded) return;
-    localStorage.setItem(STORAGE_KEYS.clients, JSON.stringify(savedClients));
-  }, [savedClients, isLoaded]);
-
-  const saveQuotation = (quotation: Quotation) => {
+  const saveQuotation = async (quotation: Quotation) => {
+    let isUpdate = false;
+    // Optimistic local update
     setSavedQuotations(prev => {
       const existing = prev.findIndex(q => q.id === quotation.id);
       if (existing >= 0) {
+        isUpdate = true;
         const updated = [...prev];
         updated[existing] = quotation;
         return updated;
       }
       return [...prev, quotation];
     });
+
+    // DB update in background
+    try {
+      if (isUpdate) {
+        await quotationAPI.update(quotation.id, quotation);
+      } else {
+        await quotationAPI.create(quotation);
+      }
+    } catch (error) {
+      console.error('Failed to save quotation to DB:', error);
+    }
   };
 
   const loadQuotation = (id: string) => {
@@ -132,8 +147,16 @@ export function QuotationProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const deleteQuotation = (id: string) => {
+  const deleteQuotation = async (id: string) => {
+    // Optimistic local update
     setSavedQuotations(prev => prev.filter(q => q.id !== id));
+    
+    // DB update
+    try {
+      await quotationAPI.delete(id);
+    } catch (error) {
+      console.error('Failed to delete quotation from DB:', error);
+    }
   };
 
   const addTemplate = (template: QuotationTemplate) => {
@@ -144,20 +167,42 @@ export function QuotationProvider({ children }: { children: React.ReactNode }) {
     setTemplates(prev => prev.filter(t => t.id !== id));
   };
 
-  const saveClient = (client: Client) => {
+  const saveClient = async (client: Client) => {
+    let isUpdate = false;
+    // Optimistic local update
     setSavedClients(prev => {
       const existing = prev.findIndex(c => c.id === client.id);
       if (existing >= 0) {
+        isUpdate = true;
         const updated = [...prev];
         updated[existing] = client;
         return updated;
       }
       return [...prev, client];
     });
+
+    // DB update
+    try {
+      if (isUpdate) {
+        await clientAPI.update(client.id, client);
+      } else {
+        await clientAPI.create(client);
+      }
+    } catch (error) {
+      console.error('Failed to save client to DB:', error);
+    }
   };
 
-  const deleteClient = (id: string) => {
+  const deleteClient = async (id: string) => {
+    // Optimistic local update
     setSavedClients(prev => prev.filter(c => c.id !== id));
+    
+    // DB update
+    try {
+      await clientAPI.delete(id);
+    } catch (error) {
+      console.error('Failed to delete client from DB:', error);
+    }
   };
 
   const setCompanyInfo = (info: CompanyInfo) => {

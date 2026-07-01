@@ -17,6 +17,7 @@ export interface IClient extends Document {
 
 const ClientSchema = new Schema<IClient>(
   {
+    _id: { type: String, required: true },
     name: {
       type: String,
       required: [true, 'Client name is required'],
@@ -58,6 +59,14 @@ const ClientSchema = new Schema<IClient>(
   },
   {
     timestamps: true,
+    toJSON: {
+      virtuals: true,
+      versionKey: false,
+      transform: function (doc, ret) {
+        ret.id = ret._id.toString();
+        delete ret._id;
+      }
+    }
   }
 );
 
